@@ -1,0 +1,300 @@
+{
+  "name": "Agente Whatsapp",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8c9cddc0-8bea-4845-ba74-edbf61810701",
+              "leftValue": "={{ $json.body.mensaje }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cc7b1e93-629d-4245-be54-655e0bcf86c8",
+              "leftValue": "={{ typeof $json.body.mensaje }}",
+              "rightValue": "string",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "a986e49a-3e58-444c-b6e5-07ae19c2766e",
+              "leftValue": "={{ $json.body.mensaje.length }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "11a5f56b-d091-4eef-9946-83dbb552ff8c",
+              "leftValue": "={{ $json.body.mensaje.length }}",
+              "rightValue": 100,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -48,
+        -32
+      ],
+      "id": "5f6d2d1f-eb99-43e1-9bc5-5c3090af4908",
+      "name": "Validar datos"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": " https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asistente útil que responde preguntas de forma clara y concisa. Responde en el mismo idioma que el usuario.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $('Recibir Mensaje').item.json.body.mensaje }}\"\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 500,\n  \"top_p\": 1,\n  \"frequency_penalty\": 0,\n  \"presence_penalty\": 0\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -128
+      ],
+      "id": "3b8ee2be-969e-4e63-beb2-a4c3db242c89",
+      "name": "Consultar OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "Nz0rKBcX1I5Wo8oU",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "778394575354187",
+        "recipientPhoneNumber": "525584783721",
+        "textBody": "={{ $json.mensaje_formateado }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        576,
+        -128
+      ],
+      "id": "776c582b-7b4a-49ae-a6d8-d9e44aadf198",
+      "name": "Enviar a whatsapp",
+      "webhookId": "d717c01a-03b4-4294-8cc4-80a6eae33760",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "0uRRblIPlKROGNNr",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"mensaje\": \"Mensaje procesado y enviado correctamente\",\n  \"detalles\": {\n    \"pregunta_original\": \"{{ $('Recibir Mensaje').item.json.body.mensaje }}\",\n    \"whatsapp_message_id\": \"{{ $json.messages[0].id }}\",\n    \"tokens_usados\": \"{{ $('Consultar OpenAI').item.json.usage.total_tokens }}\",\n    \"modelo\": \"{{ $('Consultar OpenAI').item.json.model }}\",\n    \"timestamp_proceso\": \"{{ $now.toISO() }}\"\n  }\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        784,
+        -128
+      ],
+      "id": "5ce84a86-cff4-46e4-a321-dfb0a74bbc9f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false\n}\n",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        64
+      ],
+      "id": "b1497cae-5993-469e-a4fa-1964873a4c0e",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "72677f70-b965-4cbb-9bd2-4166b9288a1f",
+              "name": "mensaje_formateado",
+              "value": "={{ $json.choices[0].message.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        -128
+      ],
+      "id": "7c5eb173-5246-4a10-bbf6-edf4ef04d523",
+      "name": "formatear respuesta"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asistente-whatsapp",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "rawBody": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -32
+      ],
+      "id": "ffce1742-0d48-4e2d-a60a-4fc9ae47e5be",
+      "name": "Recibir Mensaje",
+      "webhookId": "d3c1001d-cb2d-4ff4-9163-91408a9467f0"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Validar datos": {
+      "main": [
+        [
+          {
+            "node": "Consultar OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar OpenAI": {
+      "main": [
+        [
+          {
+            "node": "formatear respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar a whatsapp": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "formatear respuesta": {
+      "main": [
+        [
+          {
+            "node": "Enviar a whatsapp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recibir Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Validar datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f1d89d22-5dc5-4d97-b490-5ce844775404",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c5b835405053ecc0f36615e8f0d973936d3859294c832d3840775ca615e7e72c"
+  },
+  "id": "Yp1UVyXyCIduFanE",
+  "tags": []
+}
